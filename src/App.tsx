@@ -174,6 +174,9 @@ function App() {
     if (useCustomLocation && customLatitude && customLongitude) {
       url.searchParams.set('lat', customLatitude);
       url.searchParams.set('lon', customLongitude);
+    } else if (selectedLocation) {
+      url.searchParams.set('lat', selectedLocation.latitude.toString());
+      url.searchParams.set('lon', selectedLocation.longitude.toString());
     }
 
     // 卫星参数
