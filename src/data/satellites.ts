@@ -27,11 +27,13 @@ export const satellites: Satellite[] = [
   { id: 'apstar-7', name: '亚太7号', name_en: 'APStar 7', longitude: 76.5 },
   { id: 'apstar-9', name: '亚太9号', name_en: 'APStar 9', longitude: 142.0 },
 
-  // following data may be not accurate
   { id: 'asiasat-5', name: '亚洲5号', name_en: 'AsiaSat 5', longitude: 100.5 },
+  { id: 'asiasat-6', name: '亚洲6号', name_en: 'AsiaSat 6', longitude: 120.0 },
   { id: 'asiasat-7', name: '亚洲7号', name_en: 'AsiaSat 7', longitude: 105.5 },
+  { id: 'asiasat-8', name: '亚洲8号', name_en: 'AsiaSat 8', longitude: -4.0 },
   { id: 'asiasat-9', name: '亚洲9号', name_en: 'AsiaSat 9', longitude: 122.0 },
 
+  // following data may be not accurate
   { id: 'jcsat-3a', name: 'JCSAT-3A', name_en: 'JCSAT-3A', longitude: 128.0 },
   { id: 'jcsat-4b', name: 'JCSAT-4B', name_en: 'JCSAT-4B', longitude: 124.0 },
   { id: 'jcsat-110r', name: 'JCSAT-110R', name_en: 'JCSAT-110R', longitude: 110.0 },
