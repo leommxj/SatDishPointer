@@ -115,7 +115,3 @@ export const satellites: Satellite[] = [
   { id: 'nss-10', name: 'NSS-10', name_en: 'NSS-10', longitude: -37.5 },
   { id: 'telstar-12v', name: 'Telstar 12V', name_en: 'Telstar 12V', longitude: -15.0 }
 ];
-
-export const getSatellitesSortedByLongitude = () => {
-  return [...satellites].sort((a, b) => a.longitude - b.longitude);
-};

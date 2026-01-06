@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { Language, getTranslation } from '../i18n/translations';
 
 interface SatelliteDishVisualizationProps {
@@ -15,91 +15,39 @@ const SatelliteDishVisualization: React.FC<SatelliteDishVisualizationProps> = ({
   elevation,
   polarization,
   isActualElevation = false,
-  antennaType = 'offset',
+  antennaType,
   language = 'zh'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const t = getTranslation(language);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // 绘制仰角视图（左上）
+  const drawElevation = useCallback((
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number, h: number,
+    scale: number
+  ) => {
+    const centerX = x + w / 2;
+    const centerY = y + h * 0.55;
+    const arrowLength = Math.min(w, h) * 0.35;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // 设置画布尺寸
-    const resizeCanvas = () => {
-      const container = canvas.parentElement;
-      if (container) {
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
-      }
-    };
-
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    // 清空画布
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 根据画布尺寸计算缩放因子
-    const minDimension = Math.min(canvas.width, canvas.height);
-    const scale = Math.max(0.5, Math.min(1, minDimension / 500));
-
-    // 动态字体大小
-    const titleFontSize = Math.max(10, Math.round(14 * scale));
-    const labelFontSize = Math.max(9, Math.round(12 * scale));
+    const titleFontSize = Math.max(10, Math.round(13 * scale));
+    const valueFontSize = Math.max(11, Math.round(14 * scale));
     const smallFontSize = Math.max(8, Math.round(10 * scale));
-    const valueFontSize = Math.max(11, Math.round(16 * scale));
-
-    // 判断是否为小屏幕模式
-    const isSmallScreen = canvas.width < 500 || canvas.height < 350;
-    const isVerySmallScreen = canvas.width < 400 || canvas.height < 300;
-
-    // 绘制网格背景
-    ctx.strokeStyle = '#f3f4f6';
-    ctx.lineWidth = 1;
-    const gridSize = Math.max(20, 30 * scale);
-    for (let x = 0; x < canvas.width; x += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, canvas.height);
-      ctx.stroke();
-    }
-    for (let y = 0; y < canvas.height; y += gridSize) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
-      ctx.stroke();
-    }
-
-    // 分割线
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(canvas.width / 2, 30 * scale);
-    ctx.lineTo(canvas.width / 2, canvas.height - 30 * scale);
-    ctx.stroke();
-
-    // 左侧：侧视图（仰角视图）
-    const leftCenterX = canvas.width / 4;
-    const leftCenterY = canvas.height * 0.4;
-    const arrowLength = Math.min(canvas.width / 4, canvas.height / 3) * 0.5;
 
     // 标题
     ctx.fillStyle = '#374151';
     ctx.font = `bold ${titleFontSize}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(t.sideViewElevation, leftCenterX, 25 * scale);
+    ctx.fillText(t.sideViewElevation, centerX, y + 20 * scale);
 
     // 地平线
     ctx.strokeStyle = '#9ca3af';
     ctx.lineWidth = 2;
     ctx.setLineDash([5, 5]);
     ctx.beginPath();
-    ctx.moveTo(leftCenterX - arrowLength * 1.5, leftCenterY);
-    ctx.lineTo(leftCenterX + arrowLength * 1.5, leftCenterY);
+    ctx.moveTo(centerX - arrowLength * 1.3, centerY);
+    ctx.lineTo(centerX + arrowLength * 1.3, centerY);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -107,14 +55,14 @@ const SatelliteDishVisualization: React.FC<SatelliteDishVisualizationProps> = ({
     ctx.fillStyle = '#6b7280';
     ctx.font = `${smallFontSize}px sans-serif`;
     ctx.textAlign = 'left';
-    ctx.fillText(t.horizon, leftCenterX - arrowLength * 1.4, leftCenterY + 15 * scale);
+    ctx.fillText(t.horizon, centerX - arrowLength * 1.2, centerY + 12 * scale);
 
-    // 画坐标轴
+    // 垂直轴
     ctx.strokeStyle = '#d1d5db';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(leftCenterX, leftCenterY - arrowLength * 1.5);
-    ctx.lineTo(leftCenterX, leftCenterY + arrowLength * 0.5);
+    ctx.moveTo(centerX, centerY - arrowLength * 1.2);
+    ctx.lineTo(centerX, centerY + arrowLength * 0.3);
     ctx.stroke();
 
     if (elevation !== undefined) {
@@ -122,7 +70,7 @@ const SatelliteDishVisualization: React.FC<SatelliteDishVisualizationProps> = ({
 
       // 仰角弧线
       ctx.beginPath();
-      ctx.arc(leftCenterX, leftCenterY, arrowLength * 0.6, 0, -elevRad, elevation > 0);
+      ctx.arc(centerX, centerY, arrowLength * 0.5, 0, -elevRad, elevation > 0);
       ctx.strokeStyle = '#3b82f6';
       ctx.lineWidth = 2;
       ctx.stroke();
@@ -132,310 +80,378 @@ const SatelliteDishVisualization: React.FC<SatelliteDishVisualizationProps> = ({
       ctx.font = `bold ${valueFontSize}px sans-serif`;
       ctx.textAlign = 'center';
       const labelText = isActualElevation ? t.actualElevation : t.elevation;
-      ctx.fillText(`${labelText}: ${elevation.toFixed(1)}°`, leftCenterX, leftCenterY - arrowLength * 1.7);
+      ctx.fillText(`${labelText}: ${elevation.toFixed(1)}°`, centerX, y + 38 * scale);
 
-      // 绘制仰角箭头
+      // 仰角箭头
       ctx.save();
-      ctx.translate(leftCenterX, leftCenterY);
+      ctx.translate(centerX, centerY);
       ctx.rotate(-elevRad);
 
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(arrowLength * 1.2, 0);
+      ctx.lineTo(arrowLength, 0);
       ctx.stroke();
 
       // 箭头头部
-      const arrowHeadSize = Math.max(5, 8 * scale);
+      const arrowHeadSize = Math.max(5, 7 * scale);
       ctx.beginPath();
-      ctx.moveTo(arrowLength * 1.2, 0);
-      ctx.lineTo(arrowLength * 1.1, -arrowHeadSize);
-      ctx.lineTo(arrowLength * 1.1, arrowHeadSize);
+      ctx.moveTo(arrowLength, 0);
+      ctx.lineTo(arrowLength - arrowHeadSize, -arrowHeadSize * 0.7);
+      ctx.lineTo(arrowLength - arrowHeadSize, arrowHeadSize * 0.7);
       ctx.closePath();
       ctx.fillStyle = '#ef4444';
       ctx.fill();
 
       ctx.restore();
-
-      // 标注角度（仅在非小屏幕且角度足够大时显示）
-      if (!isVerySmallScreen && Math.abs(elevation) > 10) {
-        const labelRadius = arrowLength * 0.8;
-        const labelX = leftCenterX + labelRadius * Math.cos(-elevRad / 2);
-        const labelY = leftCenterY + labelRadius * Math.sin(-elevRad / 2);
-        ctx.fillStyle = '#3b82f6';
-        ctx.font = `${smallFontSize}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText(`${elevation.toFixed(1)}°`, labelX, labelY);
-      }
     }
+  }, [elevation, isActualElevation, t]);
 
-    // 右侧：俯视图（方位角视图）
-    const rightCenterX = (canvas.width * 3) / 4;
-    const rightCenterY = canvas.height * 0.4;
-    const compassRadius = arrowLength * 1.3;
+  // 绘制方位角视图（右上）
+  const drawAzimuth = useCallback((
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number, h: number,
+    scale: number
+  ) => {
+    const centerX = x + w / 2;
+    const centerY = y + h * 0.55;
+    const compassRadius = Math.min(w, h) * 0.32;
+
+    const titleFontSize = Math.max(10, Math.round(13 * scale));
+    const valueFontSize = Math.max(11, Math.round(14 * scale));
+    const labelFontSize = Math.max(8, Math.round(10 * scale));
 
     // 标题
     ctx.fillStyle = '#374151';
     ctx.font = `bold ${titleFontSize}px sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(t.topViewAzimuth, rightCenterX, 25 * scale);
+    ctx.fillText(t.topViewAzimuth, centerX, y + 20 * scale);
 
-    // 方位指示（罗盘）
+    // 罗盘圆
     ctx.beginPath();
-    ctx.arc(rightCenterX, rightCenterY, compassRadius, 0, 2 * Math.PI);
+    ctx.arc(centerX, centerY, compassRadius, 0, 2 * Math.PI);
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // 绘制十字坐标轴（东西南北线）
+    // 十字线
     ctx.strokeStyle = '#d1d5db';
     ctx.lineWidth = 1;
-    // 南北线（垂直）
     ctx.beginPath();
-    ctx.moveTo(rightCenterX, rightCenterY - compassRadius);
-    ctx.lineTo(rightCenterX, rightCenterY + compassRadius);
+    ctx.moveTo(centerX, centerY - compassRadius);
+    ctx.lineTo(centerX, centerY + compassRadius);
     ctx.stroke();
-    // 东西线（水平）
     ctx.beginPath();
-    ctx.moveTo(rightCenterX - compassRadius, rightCenterY);
-    ctx.lineTo(rightCenterX + compassRadius, rightCenterY);
+    ctx.moveTo(centerX - compassRadius, centerY);
+    ctx.lineTo(centerX + compassRadius, centerY);
     ctx.stroke();
 
-    // 方向标签 - 根据屏幕大小调整位置和显示
+    // 方向标签
     ctx.fillStyle = '#6b7280';
     ctx.font = `${labelFontSize}px sans-serif`;
+    const labelOffset = compassRadius + 8 * scale;
+
     ctx.textAlign = 'center';
-
-    const labelOffset = compassRadius + 12 * scale;
-    ctx.fillText(isSmallScreen ? t.north : `${t.north} (0°)`, rightCenterX, rightCenterY - labelOffset);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(t.north, centerX, centerY - labelOffset);
+    ctx.textBaseline = 'top';
+    ctx.fillText(t.south, centerX, centerY + labelOffset);
     ctx.textBaseline = 'middle';
-    ctx.fillText(isSmallScreen ? t.south : `${t.south} (180°)`, rightCenterX, rightCenterY + labelOffset + 5);
     ctx.textAlign = 'left';
-    ctx.fillText(isSmallScreen ? t.east : `${t.east} (90°)`, rightCenterX + labelOffset, rightCenterY);
+    ctx.fillText(t.east, centerX + labelOffset, centerY);
     ctx.textAlign = 'right';
-    ctx.fillText(isSmallScreen ? t.west : `${t.west} (270°)`, rightCenterX - labelOffset, rightCenterY);
+    ctx.fillText(t.west, centerX - labelOffset, centerY);
     ctx.textBaseline = 'alphabetic';
-
-    // 绘制45度方向（仅在非小屏幕时显示）
-    if (!isSmallScreen) {
-      const dirs = [
-        { angle: 45, label: t.northeast },
-        { angle: 135, label: t.southeast },
-        { angle: 225, label: t.southwest },
-        { angle: 315, label: t.northwest }
-      ];
-
-      ctx.fillStyle = '#9ca3af';
-      ctx.font = `${smallFontSize}px sans-serif`;
-      dirs.forEach(dir => {
-        const rad = (dir.angle - 90) * Math.PI / 180;
-        const x = rightCenterX + (compassRadius + 5) * Math.cos(rad);
-        const y = rightCenterY + (compassRadius + 5) * Math.sin(rad);
-        ctx.textAlign = dir.angle > 180 ? 'right' : 'left';
-        ctx.fillText(dir.label, x, y);
-      });
-    }
 
     if (azimuth !== undefined) {
       // 方位角数值
       ctx.fillStyle = '#dc2626';
       ctx.font = `bold ${valueFontSize}px sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText(`${t.azimuth}: ${azimuth.toFixed(1)}°`, rightCenterX, rightCenterY - compassRadius - 25 * scale);
+      ctx.fillText(`${t.azimuth}: ${azimuth.toFixed(1)}°`, centerX, y + 38 * scale);
 
       const azimuthRad = (azimuth - 90) * Math.PI / 180;
 
-      // 方位指示箭头
+      // 方位箭头
       ctx.save();
-      ctx.translate(rightCenterX, rightCenterY);
+      ctx.translate(centerX, centerY);
       ctx.rotate(azimuthRad);
 
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(0, 0);
-      ctx.lineTo(arrowLength * 1.0, 0);
+      ctx.lineTo(compassRadius * 0.85, 0);
       ctx.stroke();
 
       // 箭头头部
-      const arrowHeadSize = Math.max(5, 8 * scale);
+      const arrowHeadSize = Math.max(5, 7 * scale);
       ctx.beginPath();
-      ctx.moveTo(arrowLength * 1.0, 0);
-      ctx.lineTo(arrowLength * 0.9, -arrowHeadSize);
-      ctx.lineTo(arrowLength * 0.9, arrowHeadSize);
+      ctx.moveTo(compassRadius * 0.85, 0);
+      ctx.lineTo(compassRadius * 0.85 - arrowHeadSize, -arrowHeadSize * 0.7);
+      ctx.lineTo(compassRadius * 0.85 - arrowHeadSize, arrowHeadSize * 0.7);
       ctx.closePath();
       ctx.fillStyle = '#ef4444';
       ctx.fill();
 
       ctx.restore();
     }
+  }, [azimuth, t]);
 
-    // 底部区域：极化角和参数汇总
-    const bottomAreaY = canvas.height * 0.75;
+  // 绘制参数汇总（左下）
+  const drawSummary = useCallback((
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number, h: number,
+    scale: number
+  ) => {
+    const titleFontSize = Math.max(10, Math.round(13 * scale));
+    const valueFontSize = Math.max(10, Math.round(12 * scale));
+    const padding = 15 * scale;
+    const lineHeight = 22 * scale;
 
-    // 极化角显示（仅在足够高度时显示）
-    if (polarization !== undefined && canvas.height > 350 && !isVerySmallScreen) {
-      const polarCenterX = (canvas.width * 3) / 4;
-      const polarY = bottomAreaY;
-      const polarLength = arrowLength * 0.6;
+    // 标题
+    ctx.fillStyle = '#374151';
+    ctx.font = `bold ${titleFontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(t.paramsSummary, x + w / 2, y + 20 * scale);
 
-      // 标题
-      ctx.fillStyle = '#374151';
-      ctx.font = `bold ${titleFontSize}px sans-serif`;
+    if (azimuth === undefined && elevation === undefined) {
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = `${valueFontSize}px sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText(t.polarization, polarCenterX, polarY - polarLength - 20 * scale);
+      ctx.fillText(t.waitingResult, x + w / 2, y + h / 2);
+      return;
+    }
 
-      // 绘制圆形刻度盘
-      ctx.beginPath();
-      ctx.arc(polarCenterX, polarY, polarLength, 0, 2 * Math.PI);
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+    // 参数列表
+    ctx.font = `${valueFontSize}px sans-serif`;
+    ctx.textAlign = 'left';
+    let currentY = y + 45 * scale;
 
-      // 绘制基准线（水平）- 实线更明显
-      ctx.strokeStyle = '#9ca3af';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(polarCenterX - polarLength * 1.1, polarY);
-      ctx.lineTo(polarCenterX + polarLength * 1.1, polarY);
-      ctx.stroke();
+    if (azimuth !== undefined) {
+      ctx.fillStyle = '#374151';
+      ctx.fillText(`${t.azimuth}:`, x + padding, currentY);
+      ctx.fillStyle = '#dc2626';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${azimuth.toFixed(2)}°`, x + w - padding, currentY);
+      ctx.textAlign = 'left';
+      currentY += lineHeight;
+    }
 
-      // 标注 - 0°在右侧
-      if (!isSmallScreen) {
-        ctx.fillStyle = '#6b7280';
-        ctx.font = `${smallFontSize}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.fillText('0°', polarCenterX + polarLength + 5, polarY + 4);
-        ctx.textAlign = 'right';
-        ctx.fillText('±180°', polarCenterX - polarLength - 5, polarY + 4);
-      }
+    if (elevation !== undefined) {
+      ctx.fillStyle = '#374151';
+      const elevLabel = isActualElevation ? t.actualElevation : t.elevation;
+      ctx.fillText(`${elevLabel}:`, x + padding, currentY);
+      ctx.fillStyle = '#2563eb';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${elevation.toFixed(2)}°`, x + w - padding, currentY);
+      ctx.textAlign = 'left';
+      currentY += lineHeight;
+    }
 
-      // 绘制旋转方向弧形箭头（当极化角不为0时）
+    if (polarization !== undefined) {
+      ctx.fillStyle = '#374151';
+      ctx.fillText(`${t.polarization}:`, x + padding, currentY);
+      ctx.fillStyle = '#059669';
+      ctx.textAlign = 'right';
+      const polarText = polarization >= 0 ? `+${polarization.toFixed(2)}°` : `${polarization.toFixed(2)}°`;
+      ctx.fillText(polarText, x + w - padding, currentY);
+    }
+  }, [azimuth, elevation, polarization, isActualElevation, t]);
+
+  // 绘制极化角视图（右下）
+  const drawPolarization = useCallback((
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number, w: number, h: number,
+    scale: number
+  ) => {
+    const centerX = x + w / 2;
+    const centerY = y + h * 0.55;
+    const polarRadius = Math.min(w, h) * 0.3;
+
+    const titleFontSize = Math.max(10, Math.round(13 * scale));
+    const valueFontSize = Math.max(11, Math.round(14 * scale));
+
+    // 标题
+    ctx.fillStyle = '#374151';
+    ctx.font = `bold ${titleFontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(t.polarization, centerX, y + 20 * scale);
+
+    // 刻度盘
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, polarRadius, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 基准线（水平）
+    ctx.strokeStyle = '#9ca3af';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(centerX - polarRadius * 1.1, centerY);
+    ctx.lineTo(centerX + polarRadius * 1.1, centerY);
+    ctx.stroke();
+
+    if (polarization !== undefined) {
+      // 极化角数值
+      const polarColor = polarization > 0 ? '#3b82f6' : (polarization < 0 ? '#ef4444' : '#059669');
+      ctx.fillStyle = polarColor;
+      ctx.font = `bold ${valueFontSize}px sans-serif`;
+      ctx.textAlign = 'center';
+      const polarText = polarization >= 0 ? `+${polarization.toFixed(1)}°` : `${polarization.toFixed(1)}°`;
+      ctx.fillText(polarText, centerX, y + 38 * scale);
+
+      // 旋转弧线（当极化角不为0时）
       if (Math.abs(polarization) > 0.5) {
-        const arcRadius = polarLength * 0.4;
-        const arcStart = 0; // 从0°开始
+        const arcRadius = polarRadius * 0.4;
         const arcEnd = polarization * Math.PI / 180;
         const isClockwise = polarization > 0;
 
-        // 绘制弧线
         ctx.beginPath();
-        ctx.arc(polarCenterX, polarY, arcRadius, arcStart, arcEnd, !isClockwise);
-        ctx.strokeStyle = isClockwise ? '#3b82f6' : '#ef4444';
+        ctx.arc(centerX, centerY, arcRadius, 0, arcEnd, !isClockwise);
+        ctx.strokeStyle = polarColor;
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // 绘制弧线末端箭头
-        const arrowAngle = arcEnd;
-        const arrowSize = Math.max(4, 6 * scale);
-        const arrowX = polarCenterX + arcRadius * Math.cos(arrowAngle);
-        const arrowY = polarY + arcRadius * Math.sin(arrowAngle);
+        // 弧线箭头
+        const arrowSize = Math.max(4, 5 * scale);
+        const arrowX = centerX + arcRadius * Math.cos(arcEnd);
+        const arrowY = centerY + arcRadius * Math.sin(arcEnd);
 
         ctx.save();
         ctx.translate(arrowX, arrowY);
-        // 箭头方向垂直于弧线
-        ctx.rotate(arrowAngle + (isClockwise ? Math.PI / 2 : -Math.PI / 2));
-
+        ctx.rotate(arcEnd + (isClockwise ? Math.PI / 2 : -Math.PI / 2));
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(-arrowSize, -arrowSize * 0.6);
         ctx.lineTo(-arrowSize, arrowSize * 0.6);
         ctx.closePath();
-        ctx.fillStyle = isClockwise ? '#3b82f6' : '#ef4444';
+        ctx.fillStyle = polarColor;
         ctx.fill();
         ctx.restore();
       }
 
-      // 极化角指示线
+      // 极化指示线
       ctx.save();
-      ctx.translate(polarCenterX, polarY);
+      ctx.translate(centerX, centerY);
       ctx.rotate(polarization * Math.PI / 180);
 
       ctx.strokeStyle = '#059669';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(-polarLength * 0.85, 0);
-      ctx.lineTo(polarLength * 0.85, 0);
+      ctx.moveTo(-polarRadius * 0.8, 0);
+      ctx.lineTo(polarRadius * 0.8, 0);
       ctx.stroke();
 
-      // 极化方向箭头（双向）
-      const polarArrowSize = Math.max(4, 5 * scale);
+      // 双向箭头
+      const arrowSize = Math.max(4, 5 * scale);
       ctx.fillStyle = '#059669';
       ctx.beginPath();
-      ctx.moveTo(polarLength * 0.85, 0);
-      ctx.lineTo(polarLength * 0.75, -polarArrowSize);
-      ctx.lineTo(polarLength * 0.75, polarArrowSize);
+      ctx.moveTo(polarRadius * 0.8, 0);
+      ctx.lineTo(polarRadius * 0.7, -arrowSize);
+      ctx.lineTo(polarRadius * 0.7, arrowSize);
       ctx.closePath();
       ctx.fill();
-
       ctx.beginPath();
-      ctx.moveTo(-polarLength * 0.85, 0);
-      ctx.lineTo(-polarLength * 0.75, -polarArrowSize);
-      ctx.lineTo(-polarLength * 0.75, polarArrowSize);
+      ctx.moveTo(-polarRadius * 0.8, 0);
+      ctx.lineTo(-polarRadius * 0.7, -arrowSize);
+      ctx.lineTo(-polarRadius * 0.7, arrowSize);
       ctx.closePath();
       ctx.fill();
 
       ctx.restore();
-
-      // 极化角数值（带正负号）
-      const polarColor = polarization > 0 ? '#3b82f6' : (polarization < 0 ? '#ef4444' : '#059669');
-      ctx.fillStyle = polarColor;
-      ctx.font = `bold ${labelFontSize}px sans-serif`;
+    } else {
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = `${valueFontSize}px sans-serif`;
       ctx.textAlign = 'center';
-      const polarText = polarization > 0 ? `+${polarization.toFixed(1)}°` : `${polarization.toFixed(1)}°`;
-      ctx.fillText(polarText, polarCenterX, polarY + polarLength + 18 * scale);
+      ctx.fillText('--', centerX, y + 38 * scale);
+    }
+  }, [polarization, t]);
+
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const container = canvas.parentElement;
+    if (!container) return;
+
+    // 高清屏支持
+    const dpr = window.devicePixelRatio || 1;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(dpr, dpr);
+
+    // 清空画布
+    ctx.clearRect(0, 0, width, height);
+
+    // 计算缩放因子
+    const scale = Math.max(0.6, Math.min(1, Math.min(width, height) / 400));
+
+    // 绘制背景网格
+    ctx.strokeStyle = '#f3f4f6';
+    ctx.lineWidth = 1;
+    const gridSize = 25 * scale;
+    for (let gx = 0; gx < width; gx += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, height);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < height; gy += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(width, gy);
+      ctx.stroke();
     }
 
-    // 参数汇总（左下角）
-    if (azimuth !== undefined && elevation !== undefined) {
-      const summaryX = canvas.width / 4;
-      const summaryY = bottomAreaY;
-      const boxWidth = Math.min(150, canvas.width / 4);
-      const boxHeight = polarization !== undefined ? 70 * scale : 55 * scale;
+    // 计算四个区域（2x2布局）
+    const halfW = width / 2;
+    const halfH = height / 2;
+    const gap = 2;
 
-      ctx.fillStyle = '#f9fafb';
-      ctx.fillRect(summaryX - boxWidth / 2, summaryY - 25 * scale, boxWidth, boxHeight);
+    // 绘制分割线
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(halfW, 0);
+    ctx.lineTo(halfW, height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0, halfH);
+    ctx.lineTo(width, halfH);
+    ctx.stroke();
 
-      ctx.strokeStyle = '#e5e7eb';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(summaryX - boxWidth / 2, summaryY - 25 * scale, boxWidth, boxHeight);
+    // 绘制四个区域
+    drawElevation(ctx, gap, gap, halfW - gap * 2, halfH - gap * 2, scale);
+    drawAzimuth(ctx, halfW + gap, gap, halfW - gap * 2, halfH - gap * 2, scale);
+    drawSummary(ctx, gap, halfH + gap, halfW - gap * 2, halfH - gap * 2, scale);
+    drawPolarization(ctx, halfW + gap, halfH + gap, halfW - gap * 2, halfH - gap * 2, scale);
 
-      ctx.fillStyle = '#374151';
-      ctx.font = `bold ${labelFontSize}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.fillText(t.paramsSummary, summaryX, summaryY - 8 * scale);
+  }, [drawElevation, drawAzimuth, drawSummary, drawPolarization]);
 
-      ctx.font = `${smallFontSize}px sans-serif`;
-      ctx.textAlign = 'left';
-      const leftX = summaryX - boxWidth / 2 + 8;
-      const lineHeight = 13 * scale;
-      ctx.fillText(`${t.azimuth}: ${azimuth.toFixed(1)}°`, leftX, summaryY + 8 * scale);
-      const elevLabel = isActualElevation ? t.actualElevation : t.elevation;
-      ctx.fillText(`${elevLabel}: ${elevation.toFixed(1)}°`, leftX, summaryY + 8 * scale + lineHeight);
-      if (polarization !== undefined) {
-        ctx.fillText(`${t.polarization}: ${polarization.toFixed(1)}°`, leftX, summaryY + 8 * scale + lineHeight * 2);
-      }
-    }
+  useEffect(() => {
+    draw();
 
-    // 清理
-    return () => {
-      window.removeEventListener('resize', resizeCanvas);
-    };
-  }, [azimuth, elevation, polarization, isActualElevation, antennaType, language, t]);
+    const handleResize = () => draw();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [draw]);
 
   return (
     <div className="w-full h-full relative flex flex-col">
       <h3 className="text-lg font-semibold mb-2 flex-shrink-0">{t.visualization}</h3>
       <div className="flex-1 relative min-h-0">
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full"
-        />
-        {!azimuth && !elevation && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-gray-500 bg-white/80 px-4 py-2 rounded">{t.waitingResult}</p>
-          </div>
-        )}
+        <canvas ref={canvasRef} className="absolute inset-0" />
       </div>
     </div>
   );

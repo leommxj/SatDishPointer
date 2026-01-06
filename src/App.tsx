@@ -1,44 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { satellites, Satellite } from './data/satellites';
 import { antennas, Antenna } from './data/antennas';
 import { locations, Location } from './data/locations';
 import {
   calculateSatellitePointing,
-  CalculationResult
+  CalculationResult,
+  findNearbySatellites,
+  NearbySatelliteInfo
 } from './utils/satelliteCalculator';
 import SatelliteDishVisualization from './components/SatelliteDishVisualization';
 import CalculationResults from './components/CalculationResults';
+import NearbySatellites from './components/NearbySatellites';
 import { Language, getTranslation } from './i18n/translations';
 
-// 从URL获取语言参数
 const getLanguageFromUrl = (): Language => {
   const params = new URLSearchParams(window.location.search);
   const lang = params.get('lang');
-  if (lang === 'en' || lang === 'zh') {
-    return lang;
-  }
-  // 检查浏览器语言
+  if (lang === 'en' || lang === 'zh') return lang;
   const browserLang = navigator.language.toLowerCase();
-  if (browserLang.startsWith('zh')) {
-    return 'zh';
-  }
-  return 'en';
+  return browserLang.startsWith('zh') ? 'zh' : 'en';
 };
 
-// 更新URL语言参数
 const updateUrlLanguage = (lang: Language) => {
   const url = new URL(window.location.href);
   url.searchParams.set('lang', lang);
   window.history.replaceState({}, '', url.toString());
 };
 
-// 解析经度输入（支持 75W、92.2E、105.5 等格式）
 const parseLongitudeInput = (input: string): number | null => {
   if (!input || input.trim() === '') return null;
-
   const trimmed = input.trim().toUpperCase();
-
-  // 匹配格式：数字 + 可选的E/W
   const match = trimmed.match(/^(-?\d+\.?\d*)\s*([EW])?$/);
   if (!match) return null;
 
@@ -46,27 +37,17 @@ const parseLongitudeInput = (input: string): number | null => {
   if (isNaN(value)) return null;
 
   const direction = match[2];
-  if (direction === 'W') {
-    value = -Math.abs(value);
-  } else if (direction === 'E') {
-    value = Math.abs(value);
-  }
+  if (direction === 'W') value = -Math.abs(value);
+  else if (direction === 'E') value = Math.abs(value);
 
   if (value < -180 || value > 180) return null;
-
   return value;
 };
 
-// 格式化经度显示（75W、92.2E 格式）
 const formatLongitude = (longitude: number): string => {
-  if (longitude >= 0) {
-    return `${longitude}E`;
-  } else {
-    return `${Math.abs(longitude)}W`;
-  }
+  return longitude >= 0 ? `${longitude}E` : `${Math.abs(longitude)}W`;
 };
 
-// URL参数接口
 interface UrlParams {
   lang?: Language;
   lat?: string;
@@ -78,7 +59,6 @@ interface UrlParams {
   mode?: 'normal' | 'inverted';
 }
 
-// 从URL获取所有参数
 const getParamsFromUrl = (): UrlParams => {
   const params = new URLSearchParams(window.location.search);
   return {
@@ -94,11 +74,9 @@ const getParamsFromUrl = (): UrlParams => {
 };
 
 function App() {
-  // 状态管理
   const [language, setLanguage] = useState<Language>(getLanguageFromUrl);
   const t = getTranslation(language);
 
-  // 语言切换时更新URL
   const handleLanguageChange = (lang: Language) => {
     setLanguage(lang);
     updateUrlLanguage(lang);
@@ -110,7 +88,7 @@ function App() {
   const [selectedSatellite, setSelectedSatellite] = useState<Satellite | null>(null);
   const [customSatelliteLongitude, setCustomSatelliteLongitude] = useState<string>('');
   const [useCustomSatellite, setUseCustomSatellite] = useState<boolean>(false);
-  const [selectedAntenna, setSelectedAntenna] = useState<Antenna | null>(null);
+  const [selectedAntenna, setSelectedAntenna] = useState<Antenna | null>(antennas.find(a => a.type === 'prime_focus') || null);
   const [customOffsetAngle, setCustomOffsetAngle] = useState<string>('');
   const [installationMode, setInstallationMode] = useState<'normal' | 'inverted'>('normal');
   const [useCustomLocation, setUseCustomLocation] = useState<boolean>(false);
@@ -121,56 +99,42 @@ function App() {
   const [locationSearch, setLocationSearch] = useState<string>('');
   const [satelliteSearch, setSatelliteSearch] = useState<string>('');
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  const [showNearbySatellites, setShowNearbySatellites] = useState<boolean>(false);
+  const [nearbySatellitesList, setNearbySatellitesList] = useState<NearbySatelliteInfo[]>([]);
 
-  // 初始化时从URL加载参数
   useEffect(() => {
     const urlParams = getParamsFromUrl();
 
-    // 加载位置参数
     if (urlParams.lat && urlParams.lon) {
       setCustomLatitude(urlParams.lat);
       setCustomLongitude(urlParams.lon);
       setUseCustomLocation(true);
     }
 
-    // 加载卫星参数
     if (urlParams.satLon) {
       setCustomSatelliteLongitude(urlParams.satLon);
       setUseCustomSatellite(true);
     } else if (urlParams.sat) {
       const sat = satellites.find(s => s.id === urlParams.sat);
-      if (sat) {
-        setSelectedSatellite(sat);
-      }
+      if (sat) setSelectedSatellite(sat);
     }
 
-    // 加载天线参数
     if (urlParams.antenna) {
       const ant = antennas.find(a => a.id === urlParams.antenna);
-      if (ant) {
-        setSelectedAntenna(ant);
-      }
+      if (ant) setSelectedAntenna(ant);
     }
 
-    // 加载偏置角
-    if (urlParams.offset) {
-      setCustomOffsetAngle(urlParams.offset);
-    }
+    if (urlParams.offset) setCustomOffsetAngle(urlParams.offset);
 
-    // 加载安装模式
     if (urlParams.mode === 'normal' || urlParams.mode === 'inverted') {
       setInstallationMode(urlParams.mode);
     }
   }, []);
 
-  // 生成分享URL
   const generateShareUrl = (): string => {
     const url = new URL(window.location.origin + window.location.pathname);
-
-    // 语言
     url.searchParams.set('lang', language);
 
-    // 位置参数
     if (useCustomLocation && customLatitude && customLongitude) {
       url.searchParams.set('lat', customLatitude);
       url.searchParams.set('lon', customLongitude);
@@ -179,23 +143,17 @@ function App() {
       url.searchParams.set('lon', selectedLocation.longitude.toString());
     }
 
-    // 卫星参数
     if (useCustomSatellite && customSatelliteLongitude) {
       url.searchParams.set('satLon', customSatelliteLongitude);
     } else if (selectedSatellite) {
       url.searchParams.set('sat', selectedSatellite.id);
     }
 
-    // 天线参数
     if (selectedAntenna) {
       url.searchParams.set('antenna', selectedAntenna.id);
-
-      // 偏置角（仅偏馈天线）
       if (selectedAntenna.type === 'offset' && customOffsetAngle) {
         url.searchParams.set('offset', customOffsetAngle);
       }
-
-      // 安装模式
       if (selectedAntenna.type === 'offset') {
         url.searchParams.set('mode', installationMode);
       }
@@ -204,15 +162,13 @@ function App() {
     return url.toString();
   };
 
-  // 复制URL到剪贴板
   const copyShareUrl = async () => {
     const url = generateShareUrl();
     try {
       await navigator.clipboard.writeText(url);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
-    } catch (err) {
-      // 降级方案：创建临时输入框
+    } catch {
       const textArea = document.createElement('textarea');
       textArea.value = url;
       document.body.appendChild(textArea);
@@ -224,7 +180,6 @@ function App() {
     }
   };
 
-  // 过滤位置列表
   const filteredLocations = locationSearch.trim()
     ? locations.filter(l =>
         l.name.toLowerCase().includes(locationSearch.toLowerCase()) ||
@@ -233,7 +188,6 @@ function App() {
       )
     : locations;
 
-  // 过滤卫星列表
   const filteredSatellites = satelliteSearch.trim()
     ? satellites.filter(s =>
         s.name.toLowerCase().includes(satelliteSearch.toLowerCase()) ||
@@ -242,7 +196,6 @@ function App() {
       )
     : satellites;
 
-  // 获取GPS位置
   const getGPSLocation = () => {
     if (!navigator.geolocation) {
       setGpsError(t.gpsNotSupported);
@@ -275,77 +228,85 @@ function App() {
             setGpsError(t.gpsError);
         }
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
-  // 执行计算
-  const performCalculation = () => {
-    let latitude: number;
-    let longitude: number;
-
+  const getLocationParams = useCallback((): { latitude: number; longitude: number } | null => {
     if (useCustomLocation) {
-      latitude = parseFloat(customLatitude);
-      longitude = parseFloat(customLongitude);
-
-      if (isNaN(latitude) || isNaN(longitude)) {
-        alert(t.pleaseEnterValidCoords);
-        return;
-      }
-    } else {
-      if (!selectedLocation) {
-        alert(t.pleaseSelectLocation);
-        return;
-      }
-      latitude = selectedLocation.latitude;
-      longitude = selectedLocation.longitude;
+      const lat = parseFloat(customLatitude);
+      const lon = parseFloat(customLongitude);
+      if (!isNaN(lat) && !isNaN(lon)) return { latitude: lat, longitude: lon };
+      return null;
     }
-
-    if (!selectedSatellite && !useCustomSatellite) {
-      alert(t.pleaseSelectSatellite);
-      return;
+    if (selectedLocation) {
+      return { latitude: selectedLocation.latitude, longitude: selectedLocation.longitude };
     }
+    return null;
+  }, [useCustomLocation, customLatitude, customLongitude, selectedLocation]);
 
-    let satelliteLongitude: number;
-    if (useCustomSatellite) {
-      const parsed = parseLongitudeInput(customSatelliteLongitude);
-      if (parsed === null) {
-        alert(t.pleaseSelectSatellite);
-        return;
-      }
-      satelliteLongitude = parsed;
-    } else {
-      satelliteLongitude = selectedSatellite!.longitude;
-    }
+  const getSatelliteLongitude = useCallback((): number | null => {
+    if (useCustomSatellite) return parseLongitudeInput(customSatelliteLongitude);
+    return selectedSatellite?.longitude ?? null;
+  }, [useCustomSatellite, customSatelliteLongitude, selectedSatellite]);
 
-    const result = calculateSatellitePointing({
-      stationLatitude: latitude,
-      stationLongitude: longitude,
-      satelliteLongitude: satelliteLongitude,
-      language: language
-    });
-
-    setCalculationResult(result);
-  };
-
-  // 清除结果
   const clearResults = () => {
     setCalculationResult(null);
     setShowDetails(false);
+    setShowNearbySatellites(false);
+    setNearbySatellitesList([]);
   };
 
-  // 当输入参数改变时清除结果
+  const clearAll = () => {
+    setSelectedLocation(null);
+    setCustomLatitude('');
+    setCustomLongitude('');
+    setUseCustomLocation(false);
+    setSelectedSatellite(null);
+    setCustomSatelliteLongitude('');
+    setUseCustomSatellite(false);
+    setSelectedAntenna(antennas.find(a => a.type === 'prime_focus') || null);
+    setCustomOffsetAngle('');
+    setInstallationMode('normal');
+    setLocationSearch('');
+    setSatelliteSearch('');
+    setCalculationResult(null);
+    setShowDetails(false);
+    setShowNearbySatellites(false);
+    setNearbySatellitesList([]);
+  };
+
   useEffect(() => {
-    clearResults();
-  }, [selectedLocation, customLatitude, customLongitude, selectedSatellite, customSatelliteLongitude, useCustomSatellite, useCustomLocation, language]);
+    const location = getLocationParams();
+    const satLon = getSatelliteLongitude();
+
+    if (location && satLon !== null) {
+      const result = calculateSatellitePointing({
+        stationLatitude: location.latitude,
+        stationLongitude: location.longitude,
+        satelliteLongitude: satLon,
+        language: language
+      });
+      setCalculationResult(result);
+
+      if (result.valid) {
+        const nearby = findNearbySatellites(
+          location.latitude,
+          location.longitude,
+          satLon,
+          satellites
+        );
+        setNearbySatellitesList(nearby);
+      } else {
+        setNearbySatellitesList([]);
+      }
+    } else {
+      clearResults();
+    }
+  }, [getLocationParams, getSatelliteLongitude, language]);
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 顶部标题栏 */}
       <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -373,12 +334,9 @@ function App() {
         </div>
       </header>
 
-      {/* 主内容区 */}
       <main className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* 左侧输入面板 */}
           <div className="lg:col-span-3 space-y-4">
-            {/* 位置设置 */}
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="text-lg font-semibold mb-3">{t.stationLocation}</h2>
 
@@ -399,17 +357,13 @@ function App() {
                 >
                   {gpsLoading ? t.gettingLocation : t.getLocation}
                 </button>
-                {gpsError && (
-                  <p className="text-xs text-red-500 mt-1">{gpsError}</p>
-                )}
+                {gpsError && <p className="text-xs text-red-500 mt-1">{gpsError}</p>}
               </div>
 
               {useCustomLocation ? (
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.latitude}
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t.latitude}</label>
                     <input
                       type="number"
                       value={customLatitude}
@@ -420,9 +374,7 @@ function App() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {t.longitude}
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{t.longitude}</label>
                     <input
                       type="number"
                       value={customLongitude}
@@ -435,9 +387,7 @@ function App() {
                 </div>
               ) : (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t.searchSelectCity}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.searchSelectCity}</label>
                   <input
                     type="text"
                     value={locationSearch}
@@ -455,14 +405,12 @@ function App() {
                   >
                     <option value="">{t.selectLocation} ({filteredLocations.length}{t.results})</option>
                     {locationSearch.trim() ? (
-                      // 搜索模式：直接显示过滤结果
                       filteredLocations.map(location => (
                         <option key={location.id} value={location.id}>
                           {language === 'zh' ? location.name : location.name_en} ({location.latitude.toFixed(2)}°, {location.longitude.toFixed(2)}°)
                         </option>
                       ))
                     ) : (
-                      // 非搜索模式：分组显示
                       <>
                         <optgroup label={t.municipalities}>
                           {filteredLocations.filter(l => ['北京', '上海', '天津', '重庆'].includes(l.province || '')).map(location => (
@@ -485,7 +433,6 @@ function App() {
               )}
             </div>
 
-            {/* 卫星选择 */}
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="text-lg font-semibold mb-3">{t.satelliteSelection}</h2>
 
@@ -503,9 +450,7 @@ function App() {
 
               {useCustomSatellite ? (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {t.satelliteLongitude}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.satelliteLongitude}</label>
                   <input
                     type="text"
                     value={customSatelliteLongitude}
@@ -539,7 +484,7 @@ function App() {
                   >
                     <option value="">{t.selectSatellite} ({filteredSatellites.length}{t.results})</option>
                     {filteredSatellites
-                      .sort((a, b) => a.longitude - b.longitude)
+                      .sort((a, b) => b.longitude - a.longitude)
                       .map(satellite => (
                         <option key={satellite.id} value={satellite.id}>
                           {language === 'zh' ? satellite.name : satellite.name_en} ({formatLongitude(satellite.longitude)})
@@ -550,7 +495,6 @@ function App() {
               )}
             </div>
 
-            {/* 天线选择 */}
             <div className="bg-white rounded-lg shadow p-4">
               <h2 className="text-lg font-semibold mb-3">{t.antennaParams}</h2>
               <select
@@ -558,7 +502,6 @@ function App() {
                 onChange={(e) => {
                   const antenna = antennas.find(a => a.id === e.target.value);
                   setSelectedAntenna(antenna || null);
-                  // 重置自定义偏馈角
                   setCustomOffsetAngle('');
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -571,14 +514,10 @@ function App() {
                 ))}
               </select>
 
-              {/* 偏馈天线参数设置 */}
               {selectedAntenna?.type === 'offset' && (
                 <div className="mt-4">
-                  {/* 偏馈角设置 */}
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t.offsetAngleAdjustable}
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{t.offsetAngleAdjustable}</label>
                     <input
                       type="number"
                       value={customOffsetAngle}
@@ -594,10 +533,7 @@ function App() {
                     </p>
                   </div>
 
-                  {/* 安装方式选择 */}
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t.installationMode}
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">{t.installationMode}</label>
                   <div className="space-y-2">
                     <label className="flex items-center">
                       <input
@@ -626,36 +562,26 @@ function App() {
               )}
             </div>
 
-            {/* 操作按钮 */}
             <div className="bg-white rounded-lg shadow p-4">
               <div className="flex gap-2 mb-2">
                 <button
-                  onClick={performCalculation}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  {t.calculate}
-                </button>
-                <button
-                  onClick={clearResults}
+                  onClick={clearAll}
                   className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors"
                 >
                   {t.clear}
                 </button>
+                <button
+                  onClick={copyShareUrl}
+                  className={`flex-1 py-2 px-4 rounded-md transition-colors ${
+                    copySuccess ? 'bg-green-600 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                >
+                  {copySuccess ? t.urlCopied : t.copyUrl}
+                </button>
               </div>
-              <button
-                onClick={copyShareUrl}
-                className={`w-full py-2 px-4 rounded-md transition-colors ${
-                  copySuccess
-                    ? 'bg-green-600 text-white'
-                    : 'bg-purple-600 text-white hover:bg-purple-700'
-                }`}
-              >
-                {copySuccess ? t.urlCopied : t.copyUrl}
-              </button>
             </div>
           </div>
 
-          {/* 中间可视化区域 */}
           <div className="lg:col-span-6">
             <div className="bg-white rounded-lg shadow p-4 h-[400px] lg:h-[600px]">
               <SatelliteDishVisualization
@@ -678,19 +604,42 @@ function App() {
             </div>
           </div>
 
-          {/* 右侧结果区域 */}
           <div className="lg:col-span-3">
             <div className="bg-white rounded-lg shadow p-4" style={{ minHeight: '400px', maxHeight: '85vh', overflowY: 'auto' }}>
               {calculationResult ? (
-                <CalculationResults
-                  result={calculationResult}
-                  showDetails={showDetails}
-                  onToggleDetails={() => setShowDetails(!showDetails)}
-                  antenna={selectedAntenna}
-                  installationMode={installationMode}
-                  customOffsetAngle={customOffsetAngle ? parseFloat(customOffsetAngle) : null}
-                  language={language}
-                />
+                <>
+                  <CalculationResults
+                    result={calculationResult}
+                    showDetails={showDetails}
+                    onToggleDetails={() => setShowDetails(!showDetails)}
+                    antenna={selectedAntenna}
+                    installationMode={installationMode}
+                    customOffsetAngle={customOffsetAngle ? parseFloat(customOffsetAngle) : null}
+                    language={language}
+                  />
+
+                  <div className="mt-4 pt-4 border-t">
+                    <button
+                      onClick={() => setShowNearbySatellites(!showNearbySatellites)}
+                      className="w-full py-2 px-4 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded-md transition-colors text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <span>⚠️</span>
+                      <span>{showNearbySatellites ? t.hideNearbySatellites : t.showNearbySatellites}</span>
+                      {nearbySatellitesList.length > 0 && (
+                        <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full">
+                          {nearbySatellitesList.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {showNearbySatellites && (
+                      <div className="mt-3">
+                        <h4 className="text-sm font-semibold text-gray-700 mb-2">{t.nearbySatellites}</h4>
+                        <NearbySatellites satellites={nearbySatellitesList} language={language} />
+                      </div>
+                    )}
+                  </div>
+                </>
               ) : (
                 <div className="text-center text-gray-500 mt-20">
                   <p>{t.selectParamsHint}</p>
@@ -701,7 +650,6 @@ function App() {
         </div>
       </main>
 
-      {/* 底部信息 */}
       <footer className="container mx-auto px-4 py-4 mt-8 border-t">
         <div className="text-center text-sm text-gray-600">
           <p>{t.footerText}</p>
