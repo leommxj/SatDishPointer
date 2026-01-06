@@ -6,6 +6,7 @@ export interface Satellite {
 }
 
 export const satellites: Satellite[] = [
+  // from http://www.chinasatcom.com/
   { id: 'zhongxing-6b', name: '中星6B', name_en: 'ChinaSat 6B', longitude: 115.5 },
   { id: 'zhongxing-6c', name: '中星6C', name_en: 'ChinaSat 6C', longitude: 130.0 },
   { id: 'zhongxing-6d', name: '中星6D', name_en: 'ChinaSat 6D', longitude: 125.0 },
@@ -20,27 +21,29 @@ export const satellites: Satellite[] = [
   { id: 'zhongxing-16', name: '中星16号', name_en: 'ChinaSat 16', longitude: 110.5 },
   { id: 'zhongxing-19', name: '中星19号', name_en: 'ChinaSat 19', longitude: 163.0 },
   { id: 'zhongxing-26', name: '中星26号', name_en: 'ChinaSat 26', longitude: 125.0 },
-
   { id: 'apstar-5c', name: '亚太5C', name_en: 'APStar 5C', longitude: 138.0 },
   { id: 'apstar-6c', name: '亚太6C', name_en: 'APStar 6C', longitude: 134.0 },
   { id: 'apstar-6d', name: '亚太6D', name_en: 'APStar 6D', longitude: 134.0 },
   { id: 'apstar-7', name: '亚太7号', name_en: 'APStar 7', longitude: 76.5 },
   { id: 'apstar-9', name: '亚太9号', name_en: 'APStar 9', longitude: 142.0 },
 
+  // from https://www.asiasat.com/
   { id: 'asiasat-5', name: '亚洲5号', name_en: 'AsiaSat 5', longitude: 100.5 },
   { id: 'asiasat-6', name: '亚洲6号', name_en: 'AsiaSat 6', longitude: 120.0 },
   { id: 'asiasat-7', name: '亚洲7号', name_en: 'AsiaSat 7', longitude: 105.5 },
-  { id: 'asiasat-8', name: '亚洲8号', name_en: 'AsiaSat 8', longitude: -4.0 },
+  { id: 'asiasat-8', name: '亚洲8号', name_en: 'AsiaSat 8', longitude: 105.5 },
   { id: 'asiasat-9', name: '亚洲9号', name_en: 'AsiaSat 9', longitude: 122.0 },
+
+  // from https://www.ktsat.com/
+  { id: 'koreasat-5a', name: '韩星5A', name_en: 'Koreasat 5A', longitude: 113.0 },
+  { id: 'koreasat-6a', name: '韩星6A', name_en: 'Koreasat 6A', longitude: 116.0 },
+  { id: 'koreasat-7', name: '韩星7号', name_en: 'Koreasat 7', longitude: 116.0 },
+  { id: 'koreasat-8', name: '韩星8号', name_en: 'Koreasat 8', longitude: 75.0 },
 
   // following data may be not accurate
   { id: 'jcsat-3a', name: 'JCSAT-3A', name_en: 'JCSAT-3A', longitude: 128.0 },
   { id: 'jcsat-4b', name: 'JCSAT-4B', name_en: 'JCSAT-4B', longitude: 124.0 },
   { id: 'jcsat-110r', name: 'JCSAT-110R', name_en: 'JCSAT-110R', longitude: 110.0 },
-
-  { id: 'koreasat-5', name: '韩星5号', name_en: 'Koreasat 5', longitude: 113.0 },
-  { id: 'koreasat-6', name: '韩星6号', name_en: 'Koreasat 6', longitude: 116.0 },
-  { id: 'koreasat-7', name: '韩星7号', name_en: 'Koreasat 7', longitude: 116.0 },
 
   { id: 'intelsat-8', name: 'Intelsat 8', name_en: 'Intelsat 8', longitude: 166.0 },
   { id: 'intelsat-10', name: 'Intelsat 10', name_en: 'Intelsat 10', longitude: 68.5 },
