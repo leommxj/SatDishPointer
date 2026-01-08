@@ -298,3 +298,45 @@ export const findNearbySatellites = (
   nearbySatellites.sort((a, b) => a.azimuthDiff - b.azimuthDiff);
   return nearbySatellites;
 };
+
+export const findSatellitesByPointing = (
+  stationLatitude: number,
+  stationLongitude: number,
+  targetAzimuth: number,
+  targetElevation: number,
+  satellites: Array<{ id: string; name: string; name_en: string; longitude: number }>,
+  azimuthThreshold: number = 10,
+  elevationThreshold: number = 5
+): NearbySatelliteInfo[] => {
+  const matches: NearbySatelliteInfo[] = [];
+
+  for (const sat of satellites) {
+    const result = calculateSatellitePointing({
+      stationLatitude,
+      stationLongitude,
+      satelliteLongitude: sat.longitude
+    });
+
+    if (!result.valid) continue;
+
+    const rawAzimuthDiff = Math.abs(result.azimuth - targetAzimuth);
+    const azimuthDiff = rawAzimuthDiff > 180 ? 360 - rawAzimuthDiff : rawAzimuthDiff;
+    const elevationDiff = Math.abs(result.elevation - targetElevation);
+
+    if (azimuthDiff <= azimuthThreshold && elevationDiff <= elevationThreshold) {
+      matches.push({
+        id: sat.id,
+        name: sat.name,
+        name_en: sat.name_en,
+        longitude: sat.longitude,
+        azimuth: result.azimuth,
+        elevation: result.elevation,
+        azimuthDiff,
+        elevationDiff
+      });
+    }
+  }
+
+  matches.sort((a, b) => (a.azimuthDiff + a.elevationDiff) - (b.azimuthDiff + b.elevationDiff));
+  return matches;
+};

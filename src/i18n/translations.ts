@@ -100,6 +100,21 @@ export interface Translations {
   azimuthDiff: string;
   elevationDiff: string;
   warning: string;
+  pointingSearchTitle: string;
+  pointingSearchDescription: string;
+  pointingSearchUsingLocation: string;
+  pointingSearchLocationMissing: string;
+  pointingSearchAzimuthPlaceholder: string;
+  pointingSearchElevationPlaceholder: string;
+  pointingSearchAzimuthTolerance: string;
+  pointingSearchElevationTolerance: string;
+  pointingSearchButton: string;
+  pointingSearchClear: string;
+  pointingSearchNeedLocation: string;
+  pointingSearchNeedAngles: string;
+  pointingSearchNoMatches: string;
+  pointingSearchResults: string;
+  pointingSearchHint: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -203,6 +218,21 @@ export const translations: Record<Language, Translations> = {
     azimuthDiff: '方位角差',
     elevationDiff: '仰角差',
     warning: '警告',
+    pointingSearchTitle: '模糊搜索卫星',
+    pointingSearchDescription: '根据当前位置和输入的方位角/仰角，匹配可能对准的卫星',
+    pointingSearchUsingLocation: '当前位置',
+    pointingSearchLocationMissing: '未选择位置',
+    pointingSearchAzimuthPlaceholder: '如：180',
+    pointingSearchElevationPlaceholder: '如：45',
+    pointingSearchAzimuthTolerance: '方位角容差 (°)',
+    pointingSearchElevationTolerance: '仰角容差 (°)',
+    pointingSearchButton: '搜索匹配卫星',
+    pointingSearchClear: '清除搜索结果',
+    pointingSearchNeedLocation: '请先选择位置或输入经纬度',
+    pointingSearchNeedAngles: '请输入方位角和仰角',
+    pointingSearchNoMatches: '未找到匹配的卫星，请调整容差或输入值',
+    pointingSearchResults: '匹配结果',
+    pointingSearchHint: '输入方位角和仰角后点击搜索',
   },
   en: {
     appTitle: 'Satellite Dish Pointer',
@@ -304,6 +334,21 @@ export const translations: Record<Language, Translations> = {
     azimuthDiff: 'Az Diff',
     elevationDiff: 'El Diff',
     warning: 'Warning',
+    pointingSearchTitle: 'Fuzzy Satellite Search',
+    pointingSearchDescription: 'Match possible satellites using current location and input azimuth/elevation.',
+    pointingSearchUsingLocation: 'Current Location',
+    pointingSearchLocationMissing: 'No location selected',
+    pointingSearchAzimuthPlaceholder: 'e.g.: 180',
+    pointingSearchElevationPlaceholder: 'e.g.: 45',
+    pointingSearchAzimuthTolerance: 'Azimuth Tolerance (°)',
+    pointingSearchElevationTolerance: 'Elevation Tolerance (°)',
+    pointingSearchButton: 'Search Satellites',
+    pointingSearchClear: 'Clear Results',
+    pointingSearchNeedLocation: 'Select a location or enter coordinates first',
+    pointingSearchNeedAngles: 'Enter azimuth and elevation',
+    pointingSearchNoMatches: 'No matches found. Try adjusting tolerances or inputs.',
+    pointingSearchResults: 'Matches',
+    pointingSearchHint: 'Enter azimuth/elevation and click search',
   }
 };
 

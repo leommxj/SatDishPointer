@@ -6,11 +6,13 @@ import {
   calculateSatellitePointing,
   CalculationResult,
   findNearbySatellites,
+  findSatellitesByPointing,
   NearbySatelliteInfo
 } from './utils/satelliteCalculator';
 import SatelliteDishVisualization from './components/SatelliteDishVisualization';
 import CalculationResults from './components/CalculationResults';
 import NearbySatellites from './components/NearbySatellites';
+import PointingSearchResults from './components/PointingSearchResults';
 import { Language, getTranslation } from './i18n/translations';
 
 const getLanguageFromUrl = (): Language => {
@@ -101,6 +103,13 @@ function App() {
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
   const [showNearbySatellites, setShowNearbySatellites] = useState<boolean>(false);
   const [nearbySatellitesList, setNearbySatellitesList] = useState<NearbySatelliteInfo[]>([]);
+  const [pointingAzimuth, setPointingAzimuth] = useState<string>('');
+  const [pointingElevation, setPointingElevation] = useState<string>('');
+  const [pointingAzimuthTolerance, setPointingAzimuthTolerance] = useState<string>('10');
+  const [pointingElevationTolerance, setPointingElevationTolerance] = useState<string>('5');
+  const [pointingResults, setPointingResults] = useState<NearbySatelliteInfo[]>([]);
+  const [pointingHasSearched, setPointingHasSearched] = useState<boolean>(false);
+  const [pointingSearchError, setPointingSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     const urlParams = getParamsFromUrl();
@@ -274,6 +283,58 @@ function App() {
     setShowDetails(false);
     setShowNearbySatellites(false);
     setNearbySatellitesList([]);
+    setPointingAzimuth('');
+    setPointingElevation('');
+    setPointingAzimuthTolerance('10');
+    setPointingElevationTolerance('5');
+    setPointingResults([]);
+    setPointingHasSearched(false);
+    setPointingSearchError(null);
+  };
+
+  const runPointingSearch = () => {
+    const location = getLocationParams();
+    if (!location) {
+      setPointingSearchError(t.pointingSearchNeedLocation);
+      setPointingResults([]);
+      setPointingHasSearched(true);
+      return;
+    }
+
+    const azimuthInput = parseFloat(pointingAzimuth);
+    const elevationInput = parseFloat(pointingElevation);
+    if (isNaN(azimuthInput) || isNaN(elevationInput)) {
+      setPointingSearchError(t.pointingSearchNeedAngles);
+      setPointingResults([]);
+      setPointingHasSearched(true);
+      return;
+    }
+
+    const azimuthToleranceInput = parseFloat(pointingAzimuthTolerance);
+    const elevationToleranceInput = parseFloat(pointingElevationTolerance);
+    const azimuthThreshold = !isNaN(azimuthToleranceInput) && azimuthToleranceInput > 0 ? azimuthToleranceInput : 10;
+    const elevationThreshold = !isNaN(elevationToleranceInput) && elevationToleranceInput > 0 ? elevationToleranceInput : 5;
+    const normalizedAzimuth = ((azimuthInput % 360) + 360) % 360;
+
+    const results = findSatellitesByPointing(
+      location.latitude,
+      location.longitude,
+      normalizedAzimuth,
+      elevationInput,
+      satellites,
+      azimuthThreshold,
+      elevationThreshold
+    );
+
+    setPointingResults(results);
+    setPointingSearchError(null);
+    setPointingHasSearched(true);
+  };
+
+  const clearPointingSearch = () => {
+    setPointingResults([]);
+    setPointingHasSearched(false);
+    setPointingSearchError(null);
   };
 
   useEffect(() => {
@@ -304,6 +365,12 @@ function App() {
       clearResults();
     }
   }, [getLocationParams, getSatelliteLongitude, language]);
+
+  useEffect(() => {
+    setPointingResults([]);
+    setPointingHasSearched(false);
+    setPointingSearchError(null);
+  }, [useCustomLocation, customLatitude, customLongitude, selectedLocation]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -644,6 +711,112 @@ function App() {
                 <div className="text-center text-gray-500 mt-20">
                   <p>{t.selectParamsHint}</p>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-4">
+            <div className="bg-white rounded-lg shadow p-4">
+              <h2 className="text-lg font-semibold mb-2">{t.pointingSearchTitle}</h2>
+              <p className="text-xs text-gray-500 mb-3">{t.pointingSearchDescription}</p>
+              <div className="text-xs text-gray-600 mb-4">
+                <span className="font-medium">{t.pointingSearchUsingLocation}: </span>
+                {useCustomLocation && customLatitude && customLongitude
+                  ? `${customLatitude}°, ${customLongitude}°`
+                  : selectedLocation
+                    ? `${language === 'zh' ? selectedLocation.name : selectedLocation.name_en} (${selectedLocation.latitude.toFixed(2)}°, ${selectedLocation.longitude.toFixed(2)}°)`
+                    : t.pointingSearchLocationMissing}
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.azimuth}</label>
+                  <input
+                    type="number"
+                    value={pointingAzimuth}
+                    onChange={(e) => setPointingAzimuth(e.target.value)}
+                    placeholder={t.pointingSearchAzimuthPlaceholder}
+                    step="0.1"
+                    min="0"
+                    max="360"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.elevation}</label>
+                  <input
+                    type="number"
+                    value={pointingElevation}
+                    onChange={(e) => setPointingElevation(e.target.value)}
+                    placeholder={t.pointingSearchElevationPlaceholder}
+                    step="0.1"
+                    min="-10"
+                    max="90"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.pointingSearchAzimuthTolerance}</label>
+                  <input
+                    type="number"
+                    value={pointingAzimuthTolerance}
+                    onChange={(e) => setPointingAzimuthTolerance(e.target.value)}
+                    step="0.1"
+                    min="0.1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t.pointingSearchElevationTolerance}</label>
+                  <input
+                    type="number"
+                    value={pointingElevationTolerance}
+                    onChange={(e) => setPointingElevationTolerance(e.target.value)}
+                    step="0.1"
+                    min="0.1"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={runPointingSearch}
+                    className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors text-sm"
+                  >
+                    {t.pointingSearchButton}
+                  </button>
+                  <button
+                    onClick={clearPointingSearch}
+                    className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 transition-colors text-sm"
+                  >
+                    {t.pointingSearchClear}
+                  </button>
+                </div>
+                {pointingSearchError && (
+                  <p className="text-xs text-red-500">{pointingSearchError}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-8">
+            <div className="bg-white rounded-lg shadow p-4" style={{ minHeight: '240px' }}>
+              {pointingHasSearched ? (
+                <PointingSearchResults
+                  results={pointingResults}
+                  language={language}
+                  onSelectSatellite={(satellite) => {
+                    const selected = satellites.find(s => s.id === satellite.id) || null;
+                    setSelectedSatellite(selected);
+                    setUseCustomSatellite(false);
+                    setCustomSatelliteLongitude('');
+                    setSatelliteSearch('');
+                  }}
+                />
+              ) : (
+                <div className="text-sm text-gray-500">{t.pointingSearchHint}</div>
               )}
             </div>
           </div>
